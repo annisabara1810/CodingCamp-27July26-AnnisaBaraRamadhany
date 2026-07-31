@@ -27,6 +27,21 @@
 }
 
 /* ============================================================
+   Light Theme (Feature A — Req 11.6)
+   Applied when <body data-theme="light"> is set
+   ============================================================ */
+body[data-theme="light"] {
+  --bg-page:        #f5f5f5;
+  --bg-widget:      #ffffff;
+  --bg-input:       #f0f0f0;
+  --border-color:   #d0d0d0;
+  --text-primary:   #1a1a1a;
+  --text-secondary: #555555;
+  --shadow:         0 2px 8px rgba(0, 0, 0, 0.12);
+  /* --accent, --danger, --timer-complete remain unchanged */
+}
+
+/* ============================================================
    Reset / Base
    ============================================================ */
 *, *::before, *::after {
@@ -85,6 +100,35 @@ body {
    ============================================================ */
 #greeting {
   text-align: center;
+  position: relative;
+}
+
+/* Theme toggle button (Feature A — Req 11.1) */
+#btn-theme-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0.25rem;
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: none;
+  font-weight: normal;
+}
+
+#btn-theme-toggle:hover:not(:disabled) {
+  background-color: var(--bg-input);
+  box-shadow: none;
+}
+
+#btn-theme-toggle:focus,
+#btn-theme-toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 #greeting-text {
@@ -92,6 +136,29 @@ body {
   font-weight: 600;
   color: var(--accent);
   margin-bottom: 0.25rem;
+}
+
+/* Username row (Feature B — Req 12.1) */
+.username-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.username-row input {
+  width: auto;
+  max-width: 160px;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  text-align: center;
+}
+
+.username-row button {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  white-space: nowrap;
 }
 
 #clock-display {
@@ -156,6 +223,43 @@ body {
   font-size: 0.875rem;
   color: var(--danger);
   margin-bottom: 0.5rem;
+}
+
+/* Sort control row (Feature C — Req 13.1) */
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+}
+
+.sort-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+#sort-select {
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+#sort-select:hover {
+  border-color: var(--accent);
+}
+
+#sort-select:focus,
+#sort-select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 158, 245, 0.3);
+  outline: none;
 }
 
 #todo-list {

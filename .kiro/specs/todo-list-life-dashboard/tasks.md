@@ -173,6 +173,74 @@ Implement a static single-page productivity dashboard using plain HTML5, CSS3, a
   - Open `index.html` directly via `file://` protocol in Chrome and Firefox and confirm: clock ticks, timer counts down, tasks persist after refresh, links open in new tabs (Req 10.5).
   - Ask the user if any questions arise.
 
+- [x] 13. Implement Light / Dark Theme Toggle
+  - [x] 13.1 Add theme toggle button to `index.html` inside `#greeting` section
+    - Add `<button id="btn-theme-toggle" aria-label="Toggle theme">🌙</button>` inside the greeting widget
+    - _Requirements: 11.1_
+
+  - [x] 13.2 Implement theme functions in `js/app.js`
+    - Add storage key `THEME_KEY = 'dashboard_theme'`
+    - Implement `initTheme()`: read `THEME_KEY` from localStorage; if `'light'`, set `document.body.dataset.theme = 'light'` and button icon `☀️`; otherwise apply dark (no attribute) with icon `🌙`
+    - Implement `toggleTheme()`: flip between light/dark on `document.body.dataset.theme`; save new value to `THEME_KEY`; update button icon
+    - Wire `#btn-theme-toggle` click listener in `DOMContentLoaded`; call `initTheme()` first in init sequence
+    - Export `initTheme`, `toggleTheme` in `module.exports`
+    - _Requirements: 11.2, 11.3, 11.4, 11.5_
+
+  - [x] 13.3 Add light theme CSS to `css/style.css`
+    - Add `body[data-theme="light"]` block overriding custom properties: `--bg-page: #f5f5f5`, `--bg-widget: #ffffff`, `--bg-input: #f0f0f0`, `--border-color: #d0d0d0`, `--text-primary: #1a1a1a`, `--text-secondary: #555555`; keep `--accent` and `--danger` unchanged
+    - Style `#btn-theme-toggle`: position top-right of greeting widget, transparent background, no border, font-size 1.2rem, cursor pointer
+    - _Requirements: 11.6_
+
+  - [ ]* 13.4 Write property tests for theme toggle (`tests/utils.test.js`)
+    - **Property 20: toggleTheme is an involution** — toggle twice → body.dataset.theme unchanged
+    - **Property 21: theme persistence round-trip** — set theme, simulate reload via initTheme → same theme applied
+    - _Requirements: 11.2, 11.3, 11.4, 11.5_
+
+- [x] 14. Implement Custom Name in Greeting
+  - [x] 14.1 Add username input and button to `index.html` inside `#greeting` section
+    - Add `<input id="username-input" type="text" maxlength="50" placeholder="Your name…" />` and `<button id="btn-set-username">Set</button>` below `#greeting-text`
+    - _Requirements: 12.1, 12.5_
+
+  - [x] 14.2 Implement username functions in `js/app.js`
+    - Add storage key `USERNAME_KEY = 'dashboard_username'`
+    - Implement `initUsername()`: read `USERNAME_KEY` from localStorage; populate `#username-input` with stored name; call `updateClock()` to refresh greeting display
+    - Implement `setUsername()`: read and trim `#username-input`; if non-empty save to `USERNAME_KEY`; if empty remove key from localStorage; call `updateClock()`
+    - Update `getGreeting(hour, name)` to accept optional second parameter: if `name` is a non-empty string return e.g. `"Good Morning, Annisa!"`; otherwise return plain greeting
+    - Update `updateClock()` to read current username from `#username-input` and pass to `getGreeting`
+    - Wire `#btn-set-username` click listener and Enter keydown on `#username-input` in `DOMContentLoaded`; call `initUsername()` in init sequence
+    - Export `initUsername`, `setUsername` in `module.exports`
+    - _Requirements: 12.2, 12.3, 12.4, 12.6_
+
+  - [ ]* 14.3 Write property tests for greeting with name (`tests/utils.test.js`)
+    - **Property 22: getGreeting with name includes name and ends with "!"** — `fc.integer({min:0,max:23})` × `fc.string({minLength:1})` → result contains name, ends `"!"`
+    - **Property 23: getGreeting without name has no punctuation suffix** — `fc.integer({min:0,max:23})` → result exactly `"Good Morning"` / `"Good Afternoon"` / `"Good Evening"`
+    - _Requirements: 12.2, 12.4_
+
+- [x] 15. Implement Task Sort Control
+  - [x] 15.1 Add sort select to `index.html` inside `#todo` section
+    - Add `<select id="sort-select"><option value="default">Default</option><option value="az">A→Z</option><option value="za">Z→A</option><option value="done-last">Done last</option></select>` above `#todo-list`
+    - _Requirements: 13.1_
+
+  - [x] 15.2 Implement sort functions in `js/app.js`
+    - Add storage key `SORT_KEY = 'dashboard_sort'`
+    - Add state variable `let currentSort = 'default'`
+    - Implement `initSort()`: read `SORT_KEY` from localStorage; set `currentSort`; set `#sort-select` value; call `renderTasks()`
+    - Implement `sortTasks(taskArray)`: return a new sorted copy of `taskArray` based on `currentSort` without mutating the original
+      - `'az'`: `[...arr].sort((a, b) => a.text.toLowerCase().localeCompare(b.text.toLowerCase()))`
+      - `'za'`: reverse of `'az'`
+      - `'done-last'`: incomplete (`done === false`) first, complete (`done === true`) last, preserving relative order within each group (stable sort)
+      - `'default'`: return `[...arr]` (copy of original order)
+    - Update `renderTasks()` to call `sortTasks(tasks)` and iterate over the sorted copy
+    - Wire `#sort-select` change listener in `DOMContentLoaded`: update `currentSort`, save to `SORT_KEY`, call `renderTasks()`; call `initSort()` in init sequence
+    - Export `initSort`, `sortTasks` in `module.exports`
+    - _Requirements: 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8_
+
+  - [ ]* 15.3 Write property tests for task sorting (`tests/todo.test.js`)
+    - **Property 24: sortTasks never mutates the original array** — any array, any mode → original unchanged
+    - **Property 25: sortTasks 'az' produces ascending order** — pairwise `<=` comparison on lowercased text
+    - **Property 26: sortTasks 'done-last' groups incomplete before complete** — no incomplete after complete
+    - _Requirements: 13.3, 13.5, 13.6_
+
 ---
 
 ## Notes
@@ -201,7 +269,9 @@ Implement a static single-page productivity dashboard using plain HTML5, CSS3, a
     { "id": 7, "tasks": ["7.2", "7.3", "8.1"] },
     { "id": 8, "tasks": ["8.2", "8.3", "10.1"] },
     { "id": 9, "tasks": ["10.2", "11.1"] },
-    { "id": 10, "tasks": ["11.2"] }
+    { "id": 10, "tasks": ["11.2"] },
+    { "id": 11, "tasks": ["13.1", "13.2", "13.3", "14.1", "14.2", "15.1", "15.2"] },
+    { "id": 12, "tasks": ["13.4", "14.3", "15.3"] }
   ]
 }
 ```

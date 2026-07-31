@@ -27,12 +27,15 @@ Browser
 └── index.html
     ├── <link> css/style.css
     └── <script defer> js/app.js
-        ├── Constants & State         (INITIAL_SECONDS, storage keys, in-memory arrays)
+        ├── Constants & State         (INITIAL_SECONDS, storage keys, in-memory arrays,
+        │                              currentSort)
         ├── Utility Helpers           (formatTime, formatDate, getGreeting, normalizeUrl)
-        ├── Greeting Module           (updateClock — called by setInterval every 1 s)
+        ├── Greeting Module           (updateClock — called by setInterval every 1 s,
+        │                              initTheme, toggleTheme, initUsername, setUsername)
         ├── Timer Module              (startTimer, pauseTimer, resetTimer, tick)
         ├── Todo Module               (addTask, editTask, confirmEdit, cancelEdit,
-        │                              toggleTask, deleteTask, saveTasks, loadTasks)
+        │                              toggleTask, deleteTask, saveTasks, loadTasks,
+        │                              sortTasks, initSort, renderTasks)
         └── Links Module              (addLink, removeLink, saveLinks, loadLinks)
 ```
 
@@ -49,8 +52,11 @@ User Action → Event Listener → Module Function → Mutate In-Memory State
 **Data flow on page load:**
 
 ```
-DOMContentLoaded → loadTasks() → localStorage.getItem → JSON.parse → renderAllTasks()
-                → loadLinks() → localStorage.getItem → JSON.parse → renderAllLinks()
+DOMContentLoaded → initTheme()    → localStorage.getItem('dashboard_theme') → apply data-theme + icon
+                → initUsername()  → localStorage.getItem('dashboard_username') → populate input + greeting
+                → initSort()      → localStorage.getItem('dashboard_sort') → set sort-select value
+                → loadTasks()     → localStorage.getItem → JSON.parse → renderAllTasks()
+                → loadLinks()     → localStorage.getItem → JSON.parse → renderAllLinks()
                 → initGreeting()  → updateClock() + setInterval(updateClock, 1000)
                 → initTimer()     → render 25:00, disable pause button
 ```
@@ -63,18 +69,22 @@ DOMContentLoaded → loadTasks() → localStorage.getItem → JSON.parse → ren
 
 ```js
 // Storage keys
-const TASKS_KEY = 'dashboard_tasks';
-const LINKS_KEY = 'dashboard_links';
+const TASKS_KEY    = 'dashboard_tasks';
+const LINKS_KEY    = 'dashboard_links';
+const THEME_KEY    = 'dashboard_theme';
+const USERNAME_KEY = 'dashboard_username';
+const SORT_KEY     = 'dashboard_sort';
 
 // Timer constant
 const INITIAL_SECONDS = 25 * 60; // 1500
 
 // In-memory state
-let tasks = [];       // Array<{ id: string, text: string, done: boolean }>
-let links = [];       // Array<{ id: string, name: string, url: string }>
+let tasks        = [];       // Array<{ id: string, text: string, done: boolean }>
+let links        = [];       // Array<{ id: string, name: string, url: string }>
 let timerSeconds = INITIAL_SECONDS;
 let timerRunning = false;
 let timerInterval = null;
+let currentSort  = 'default'; // 'default' | 'az' | 'za' | 'done-last'
 ```
 
 ### 2. Utility Helpers
@@ -85,16 +95,24 @@ Pure functions with no side effects. These are the primary targets for property-
 |---|---|---|
 | `formatTime(date)` | `Date → string` | Returns `"HH:MM:SS"` from a Date object |
 | `formatDate(date)` | `Date → string` | Returns `"Weekday, DD Month YYYY"` |
-| `getGreeting(hour)` | `number(0-23) → string` | Returns `"Good Morning"`, `"Good Afternoon"`, or `"Good Evening"` |
+| `getGreeting(hour, name)` | `(number(0-23), string?) → string` | Returns `"Good Morning, Name!"` if name set, or `"Good Morning"` etc. without |
 | `formatTimer(seconds)` | `number(0-1500) → string` | Returns `"MM:SS"` zero-padded |
 | `normalizeUrl(url)` | `string → string` | Prefixes bare URLs with `"https://"` if no protocol present |
 | `generateId()` | `() → string` | Returns a unique ID using `Date.now()` + random suffix |
 
 ### 3. Greeting Module
 
-**DOM elements:** `#greeting-text`, `#clock-display`, `#date-display`
+**DOM elements:** `#greeting-text`, `#clock-display`, `#date-display`, `#btn-theme-toggle`, `#username-input`, `#btn-set-username`
 
-**`updateClock()`** — reads `new Date()`, calls `formatTime`, `formatDate`, `getGreeting`, then sets `textContent` on each element. Called immediately on load and then every 1000 ms via `setInterval`.
+**`updateClock()`** — reads `new Date()`, calls `formatTime`, `formatDate`, `getGreeting(hour, currentUsername)`, then sets `textContent` on each element. Called immediately on load and then every 1000 ms via `setInterval`.
+
+**`initTheme()`** — reads `dashboard_theme` from localStorage. Applies `data-theme="light"` to `<body>` if stored value is `'light'`; otherwise leaves `<body>` without the attribute (dark default). Sets toggle button icon (☀️ for light, 🌙 for dark).
+
+**`toggleTheme()`** — reads the current `data-theme` attribute on `<body>`. If `'light'`, removes it (dark). Otherwise sets `data-theme="light"`. Persists new value to `dashboard_theme`. Updates toggle button icon.
+
+**`initUsername()`** — reads `dashboard_username` from localStorage. If found, populates `#username-input` with the stored name and calls `updateClock()` to reflect the name in the greeting.
+
+**`setUsername()`** — reads `#username-input`, trims whitespace. If non-empty, saves to `dashboard_username` and updates greeting. If empty, removes `dashboard_username` from localStorage and reverts to unnamed greeting.
 
 ### 4. Timer Module
 
@@ -127,7 +145,7 @@ Pure functions with no side effects. These are the primary targets for property-
 
 ### 5. Todo Module
 
-**DOM elements:** `#todo-input`, `#btn-add-todo`, `#todo-list`
+**DOM elements:** `#todo-input`, `#btn-add-todo`, `#todo-list`, `#sort-select`
 
 **Task object:**
 ```js
@@ -139,7 +157,9 @@ Pure functions with no side effects. These are the primary targets for property-
 | `loadTasks()` | Reads `TASKS_KEY` from localStorage, parses JSON, populates `tasks[]`, renders all |
 | `saveTasks()` | JSON-stringifies `tasks[]`, writes to `localStorage.setItem(TASKS_KEY, ...)`. Wrapped in try/catch — failure is silent (in-memory state is authoritative) |
 | `addTask()` | Reads `#todo-input`, trims value. If blank: shows validation message, returns. Otherwise: pushes new Task, calls `saveTasks()`, renders, clears input |
-| `renderTasks()` | Clears `#todo-list`, creates a `<li>` for each task with edit/delete/toggle controls |
+| `sortTasks(taskArray)` | Returns a **new** sorted array based on `currentSort`. Does NOT mutate the original array. `'az'` → case-insensitive alpha ascending; `'za'` → descending; `'done-last'` → incomplete first then complete; `'default'` → original order |
+| `renderTasks()` | Calls `sortTasks(tasks)` to get the display array. Clears `#todo-list`, creates a `<li>` for each task with edit/delete/toggle controls |
+| `initSort()` | Reads `SORT_KEY` from localStorage, sets `currentSort` and `#sort-select` value |
 | `editTask(id)` | Puts task into edit mode: replaces label with `<input maxlength="200">` pre-populated with current text |
 | `confirmEdit(id)` | Trims input value. If blank: calls `cancelEdit(id)`. Otherwise: updates `task.text`, calls `saveTasks()`, re-renders |
 | `cancelEdit(id)` | Re-renders the task without modifying `tasks[]` |
@@ -195,8 +215,11 @@ Pure functions with no side effects. These are the primary targets for property-
 |---|---|---|
 | `dashboard_tasks` | Array of Task objects | `JSON.stringify(Task[])` |
 | `dashboard_links` | Array of Link objects | `JSON.stringify(Link[])` |
+| `dashboard_theme` | `'light'` or `'dark'` | Plain string |
+| `dashboard_username` | User's display name (max 50 chars) | Plain string |
+| `dashboard_sort` | `'default'`, `'az'`, `'za'`, or `'done-last'` | Plain string |
 
-Both keys are absent on first run; the app defaults to empty arrays. The JSON is flat (no nested objects beyond the top-level arrays), so deserialization is a single `JSON.parse` call with no migrations needed for v1.
+Both task and link keys are absent on first run; the app defaults to empty arrays. The theme key is absent on first run; the app defaults to dark. The username key is absent on first run; the greeting shows without a name. The sort key is absent on first run; the app defaults to insertion order.
 
 ---
 
@@ -359,6 +382,62 @@ Both keys are absent on first run; the app defaults to empty arrays. The JSON is
 
 ---
 
+### Property 20: Theme toggle is an involution
+
+*For any* starting theme state T ('light' or 'dark'), calling `toggleTheme()` once shall switch to the opposite theme. Calling `toggleTheme()` twice shall return `document.body.dataset.theme` to the value equivalent to the original theme T.
+
+**Validates: Requirements 11.2, 11.3**
+
+---
+
+### Property 21: Theme persistence round-trip
+
+*For any* theme value V ∈ {'light', 'dark'}, calling `toggleTheme()` to reach theme V and then calling `initTheme()` (simulating a page reload) shall result in the same theme V being applied.
+
+**Validates: Requirements 11.4, 11.5**
+
+---
+
+### Property 22: Greeting with name always includes name and ends with "!"
+
+*For any* integer hour in [0..23] and any non-empty trimmed name string N, `getGreeting(hour, N)` shall return a string that contains N and ends with `"!"`.
+
+**Validates: Requirements 12.2**
+
+---
+
+### Property 23: Greeting without name never contains punctuation suffix
+
+*For any* integer hour in [0..23], `getGreeting(hour, '')` and `getGreeting(hour, undefined)` shall return exactly `"Good Morning"`, `"Good Afternoon"`, or `"Good Evening"` (no trailing comma, colon, or exclamation mark).
+
+**Validates: Requirements 12.4**
+
+---
+
+### Property 24: sortTasks never mutates the original array
+
+*For any* tasks array A and any sort mode M ∈ {'default', 'az', 'za', 'done-last'}, calling `sortTasks(A)` shall return a new array containing the same elements as A without modifying A's order or length.
+
+**Validates: Requirements 13.6**
+
+---
+
+### Property 25: sortTasks 'az' produces a stable ascending sort
+
+*For any* tasks array, `sortTasks` in `'az'` mode shall return an array where every adjacent pair (tasks[i], tasks[i+1]) satisfies `tasks[i].text.toLowerCase() <= tasks[i+1].text.toLowerCase()`.
+
+**Validates: Requirements 13.3**
+
+---
+
+### Property 26: sortTasks 'done-last' groups incomplete before complete
+
+*For any* tasks array containing at least one incomplete and one complete task, `sortTasks` in `'done-last'` mode shall return an array where no incomplete task appears after any complete task.
+
+**Validates: Requirements 13.5**
+
+---
+
 ## Error Handling
 
 ### localStorage Write Failures
@@ -428,6 +507,13 @@ Each property test is tagged with a comment identifying the design property it v
 | P17: blank link rejected | Name or URL empty → links unchanged | Cases where name or url is empty |
 | P18: link round-trip | Link array → save → load → equal | `fc.array(linkArbitrary)` |
 | P19: remove link removes one | Array + valid index → length-1, target absent | `fc.array(linkArbitrary, { minLength: 1 })` |
+| P20: theme toggle is involution | Any theme state → toggle twice = original | `fc.constantFrom('light', 'dark')` |
+| P21: theme persistence round-trip | Any theme V → toggleTheme → initTheme → V | `fc.constantFrom('light', 'dark')` |
+| P22: greeting with name includes name + "!" | Any hour + non-empty name → contains name, ends "!" | `fc.integer({min:0,max:23})`, `fc.string({minLength:1})` |
+| P23: greeting without name has no punctuation suffix | Any hour, empty/undefined name → plain greeting | `fc.integer({min:0,max:23})` |
+| P24: sortTasks never mutates original | Any tasks array, any sort mode → original unchanged | `fc.array(taskArbitrary)`, `fc.constantFrom(...)` |
+| P25: sortTasks 'az' ascending | Any tasks → sorted result pairwise ascending | `fc.array(taskArbitrary)` |
+| P26: sortTasks 'done-last' groups incomplete first | Mixed done/undone → no incomplete after complete | `fc.array(taskArbitrary, {minLength:2})` |
 
 ### Unit Tests (example-based)
 

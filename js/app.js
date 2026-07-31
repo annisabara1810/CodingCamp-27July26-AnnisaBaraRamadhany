@@ -5,16 +5,20 @@
   // Constants & State
   // ─────────────────────────────────────────────
 
-  const TASKS_KEY = 'dashboard_tasks';
-  const LINKS_KEY = 'dashboard_links';
+  const TASKS_KEY    = 'dashboard_tasks';
+  const LINKS_KEY    = 'dashboard_links';
+  const THEME_KEY    = 'dashboard_theme';
+  const USERNAME_KEY = 'dashboard_username';
+  const SORT_KEY     = 'dashboard_sort';
 
   const INITIAL_SECONDS = 25 * 60; // 1500
 
-  let tasks = [];        // Array<{ id: string, text: string, done: boolean }>
-  let links = [];        // Array<{ id: string, name: string, url: string }>
+  let tasks        = [];        // Array<{ id: string, text: string, done: boolean }>
+  let links        = [];        // Array<{ id: string, name: string, url: string }>
   let timerSeconds = INITIAL_SECONDS;
   let timerRunning = false;
   let timerInterval = null;
+  let currentSort  = 'default'; // 'default' | 'az' | 'za' | 'done-last'
 
   // ─────────────────────────────────────────────
   // Utility Helpers
@@ -26,10 +30,10 @@
    * @returns {string}
    */
   function formatTime(date) {
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mm = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
-    return `${hh}:${mm}:${ss}`;
+    var hh = String(date.getHours()).padStart(2, '0');
+    var mm = String(date.getMinutes()).padStart(2, '0');
+    var ss = String(date.getSeconds()).padStart(2, '0');
+    return hh + ':' + mm + ':' + ss;
   }
 
   /**
@@ -47,17 +51,30 @@
   }
 
   /**
-   * Return a time-based greeting string based on the hour (0–23).
-   * 5–11  → "Good Morning"
-   * 12–17 → "Good Afternoon"
-   * 0–4, 18–23 → "Good Evening"
+   * Return a time-based greeting string based on the hour (0–23) and an
+   * optional name. When a non-empty name is provided the greeting becomes
+   * personalised (e.g. "Good Morning, Annisa!").
+   * 5–11  → "Good Morning[, Name!]"
+   * 12–17 → "Good Afternoon[, Name!]"
+   * 0–4, 18–23 → "Good Evening[, Name!]"
    * @param {number} hour
+   * @param {string} [name]
    * @returns {string}
    */
-  function getGreeting(hour) {
-    if (hour >= 5 && hour <= 11) return 'Good Morning';
-    if (hour >= 12 && hour <= 17) return 'Good Afternoon';
-    return 'Good Evening';
+  function getGreeting(hour, name) {
+    var base;
+    if (hour >= 5 && hour <= 11) {
+      base = 'Good Morning';
+    } else if (hour >= 12 && hour <= 17) {
+      base = 'Good Afternoon';
+    } else {
+      base = 'Good Evening';
+    }
+    var trimmedName = (name && typeof name === 'string') ? name.trim() : '';
+    if (trimmedName) {
+      return base + ', ' + trimmedName + '!';
+    }
+    return base;
   }
 
   /**
@@ -66,9 +83,9 @@
    * @returns {string}
    */
   function formatTimer(seconds) {
-    const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
-    const ss = String(seconds % 60).padStart(2, '0');
-    return `${mm}:${ss}`;
+    var mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+    var ss = String(seconds % 60).padStart(2, '0');
+    return mm + ':' + ss;
   }
 
   /**
@@ -98,11 +115,14 @@
 
   /**
    * Read the current time and update all greeting DOM elements.
+   * Passes the current username to getGreeting so the display stays in sync.
    * Called immediately on load and then once per second via setInterval.
    */
   function updateClock() {
-    const date = new Date();
-    document.getElementById('greeting-text').textContent = getGreeting(date.getHours());
+    var date = new Date();
+    var usernameInput = document.getElementById('username-input');
+    var currentName = usernameInput ? usernameInput.value : '';
+    document.getElementById('greeting-text').textContent = getGreeting(date.getHours(), currentName);
     document.getElementById('clock-display').textContent = formatTime(date);
     document.getElementById('date-display').textContent = formatDate(date);
   }
@@ -116,6 +136,74 @@
   }
 
   // ─────────────────────────────────────────────
+  // Theme Module  (Feature A — Req 11)
+  // ─────────────────────────────────────────────
+
+  /**
+   * Apply the saved theme from localStorage on page load.
+   * Defaults to dark if no preference is stored.
+   */
+  function initTheme() {
+    var saved = localStorage.getItem(THEME_KEY);
+    var btn = document.getElementById('btn-theme-toggle');
+    if (saved === 'light') {
+      document.body.dataset.theme = 'light';
+      if (btn) btn.textContent = '☀️';
+    } else {
+      delete document.body.dataset.theme;
+      if (btn) btn.textContent = '🌙';
+    }
+  }
+
+  /**
+   * Toggle between dark and light themes, persist the choice, update the icon.
+   */
+  function toggleTheme() {
+    var btn = document.getElementById('btn-theme-toggle');
+    if (document.body.dataset.theme === 'light') {
+      delete document.body.dataset.theme;
+      localStorage.setItem(THEME_KEY, 'dark');
+      if (btn) btn.textContent = '🌙';
+    } else {
+      document.body.dataset.theme = 'light';
+      localStorage.setItem(THEME_KEY, 'light');
+      if (btn) btn.textContent = '☀️';
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Username Module  (Feature B — Req 12)
+  // ─────────────────────────────────────────────
+
+  /**
+   * Load the stored username and populate the input field and greeting.
+   */
+  function initUsername() {
+    var stored = localStorage.getItem(USERNAME_KEY) || '';
+    var input = document.getElementById('username-input');
+    if (input) input.value = stored;
+    // updateClock reads from the input, so just call it to refresh the greeting
+    updateClock();
+  }
+
+  /**
+   * Read the username input, trim it, persist or clear, and update the greeting.
+   */
+  function setUsername() {
+    var input = document.getElementById('username-input');
+    if (!input) return;
+    var name = input.value.trim();
+    if (name) {
+      localStorage.setItem(USERNAME_KEY, name);
+    } else {
+      localStorage.removeItem(USERNAME_KEY);
+    }
+    // Sync the input to the trimmed value so updateClock reads it correctly
+    input.value = name;
+    updateClock();
+  }
+
+  // ─────────────────────────────────────────────
   // Timer Module
   // ─────────────────────────────────────────────
 
@@ -124,8 +212,8 @@
    * @param {'stopped'|'running'|'paused'|'completed'} phase
    */
   function setTimerButtonStates(phase) {
-    const btnStart = document.getElementById('btn-start');
-    const btnPause = document.getElementById('btn-pause');
+    var btnStart = document.getElementById('btn-start');
+    var btnPause = document.getElementById('btn-pause');
     if (phase === 'running') {
       btnStart.disabled = true;
       btnPause.disabled = false;
@@ -190,7 +278,7 @@
   function tick() {
     if (timerSeconds <= 0) return; // guard against race conditions
     timerSeconds -= 1;
-    const display = document.getElementById('timer-display');
+    var display = document.getElementById('timer-display');
     display.textContent = formatTimer(timerSeconds);
     if (timerSeconds === 0) {
       clearInterval(timerInterval);
@@ -234,6 +322,46 @@
   }
 
   /**
+   * Return a new sorted copy of the given task array based on currentSort.
+   * Does NOT mutate the original array (Req 13.6).
+   * @param {Array} taskArray
+   * @returns {Array}
+   */
+  function sortTasks(taskArray) {
+    var copy = taskArray.slice(); // shallow copy — never mutate original
+    if (currentSort === 'az') {
+      copy.sort(function (a, b) {
+        return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+      });
+    } else if (currentSort === 'za') {
+      copy.sort(function (a, b) {
+        return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
+      });
+    } else if (currentSort === 'done-last') {
+      // Stable partition: incomplete first, complete last.
+      // Array.prototype.sort is stable in all modern engines (ES2019+).
+      copy.sort(function (a, b) {
+        if (a.done === b.done) return 0;
+        return a.done ? 1 : -1; // false (incomplete) before true (complete)
+      });
+    }
+    // 'default' — already a copy of original order, nothing more to do
+    return copy;
+  }
+
+  /**
+   * Initialise the sort control from localStorage.
+   * Sets currentSort and syncs the #sort-select value.
+   */
+  function initSort() {
+    var saved = localStorage.getItem(SORT_KEY);
+    var validModes = ['default', 'az', 'za', 'done-last'];
+    currentSort = (saved && validModes.indexOf(saved) !== -1) ? saved : 'default';
+    var select = document.getElementById('sort-select');
+    if (select) select.value = currentSort;
+  }
+
+  /**
    * Read the text input, validate it, then append a new task, persist,
    * re-render, and clear the input (Req 3.2). Shows a validation message
    * for empty/whitespace-only input without creating a task (Req 3.3).
@@ -265,17 +393,19 @@
   }
 
   /**
-   * Clear and rebuild the `#todo-list` element from the current `tasks[]`.
+   * Clear and rebuild the `#todo-list` element from a sorted copy of `tasks[]`.
    * Each item gets a label <span>, an Edit button, a Delete button, and a
    * completion checkbox. Completed tasks receive the `.done` class for
-   * strikethrough styling (Req 5.2).
+   * strikethrough styling (Req 5.2). Sort is visual-only (Req 13.6).
    */
   function renderTasks() {
     var list = document.getElementById('todo-list');
     if (!list) return;
     list.innerHTML = '';
 
-    tasks.forEach(function (task) {
+    var displayTasks = sortTasks(tasks); // sorted view; original tasks[] untouched
+
+    displayTasks.forEach(function (task) {
       var li = document.createElement('li');
       li.dataset.id = task.id;
 
@@ -544,14 +674,28 @@
   // ─────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
-    // Initialise in spec-prescribed order: loadTasks → loadLinks → initGreeting → initTimer
-    // (Req 1.7, 2.1, 8.3, 8.4, 8.5, 8.6)
+    // Theme — must be first to avoid flash of unstyled content
+    initTheme();
+    document.getElementById('btn-theme-toggle').addEventListener('click', toggleTheme);
 
-    // Todo Module — restore persisted tasks before anything else
+    // Username — initialise before clock so first render includes the name
+    initUsername();
+    document.getElementById('btn-set-username').addEventListener('click', setUsername);
+    document.getElementById('username-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') setUsername();
+    });
+
+    // Todo Module — restore persisted tasks
+    initSort(); // must run before loadTasks so sortTasks uses the correct mode
     loadTasks();
     document.getElementById('btn-add-todo').addEventListener('click', addTask);
     document.getElementById('todo-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') addTask();
+    });
+    document.getElementById('sort-select').addEventListener('change', function (e) {
+      currentSort = e.target.value;
+      try { localStorage.setItem(SORT_KEY, currentSort); } catch (ex) { /* silent */ }
+      renderTasks();
     });
 
     // Links Module — restore persisted links
@@ -576,14 +720,19 @@
   if (typeof module !== 'undefined') {
     module.exports = {
       formatTime, formatDate, getGreeting, formatTimer, normalizeUrl, generateId,
+      initTheme, toggleTheme,
+      initUsername, setUsername,
       initTimer, startTimer, pauseTimer, resetTimer, tick,
       loadTasks, saveTasks, addTask, renderTasks,
+      sortTasks, initSort,
       editTask, confirmEdit, cancelEdit, toggleTask, deleteTask,
       loadLinks, saveLinks, addLink, renderLinks, removeLink,
-      get tasks() { return tasks; },
-      set tasks(v) { tasks = v; },
-      get links() { return links; },
-      set links(v) { links = v; },
+      get tasks()       { return tasks; },
+      set tasks(v)      { tasks = v; },
+      get links()       { return links; },
+      set links(v)      { links = v; },
+      get currentSort() { return currentSort; },
+      set currentSort(v){ currentSort = v; },
     };
   }
 }());

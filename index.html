@@ -9,7 +9,12 @@
 <body>
   <!-- Greeting & Clock Widget -->
   <section id="greeting" class="widget">
+    <button id="btn-theme-toggle" aria-label="Toggle theme">🌙</button>
     <div id="greeting-text"></div>
+    <div class="username-row">
+      <input id="username-input" type="text" maxlength="50" placeholder="Your name…" aria-label="Enter your name" />
+      <button id="btn-set-username">Set</button>
+    </div>
     <div id="clock-display"></div>
     <div id="date-display"></div>
   </section>
@@ -31,6 +36,15 @@
       <button id="btn-add-todo">Add</button>
     </div>
     <p id="todo-validation" role="alert" style="display:none;"></p>
+    <div class="sort-row">
+      <label for="sort-select" class="sort-label">Sort:</label>
+      <select id="sort-select" aria-label="Sort tasks">
+        <option value="default">Default</option>
+        <option value="az">A→Z</option>
+        <option value="za">Z→A</option>
+        <option value="done-last">Done last</option>
+      </select>
+    </div>
     <ul id="todo-list"></ul>
   </section>
 

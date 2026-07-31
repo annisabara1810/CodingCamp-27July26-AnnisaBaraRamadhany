@@ -145,15 +145,15 @@ The To-Do List Life Dashboard is a static, single-page web application that serv
 
 ### Requirement 9: Visual Design and Responsiveness
 
-**User Story:** As a user, I want a clean, minimal dark interface that is readable and responsive, so that the dashboard is pleasant to use on any screen size.
+**User Story:** As a user, I want a clean, minimal interface that is readable and responsive, so that the dashboard is pleasant to use on any screen size.
 
 #### Acceptance Criteria
 
-1. THE Stylesheet SHALL implement a dark color scheme as the default and only theme.
+1. THE Stylesheet SHALL implement a dark color scheme as the default theme and a light color scheme as an alternative theme, selectable by the user.
 2. THE Stylesheet SHALL apply consistent font sizing and line-height values that ensure text is legible at standard screen resolutions.
 3. THE Dashboard SHALL arrange all four widgets in a layout that adapts to both desktop and mobile viewport widths without horizontal scrolling.
 4. THE Dashboard SHALL render correctly in the latest stable versions of Chrome, Firefox, Edge, and Safari.
-5. THE Dashboard SHOULD provide an accessibility theme option (e.g. high-contrast or light theme) for users who require it, in addition to the default dark theme.
+5. THE Dashboard SHALL provide a light theme option for users who prefer it, in addition to the default dark theme.
 
 ---
 
@@ -168,3 +168,50 @@ The To-Do List Life Dashboard is a static, single-page web application that serv
 3. THE App SHALL be located at `js/app.js` and SHALL be the only JavaScript file in the project.
 4. THE App SHALL use only browser-native Web APIs with no external libraries, frameworks, or module bundlers.
 5. THE Dashboard SHALL load and function correctly when opened directly as a local file in a browser (via `file://` protocol) without requiring a web server.
+
+---
+
+### Requirement 11: Light / Dark Theme Toggle
+
+**User Story:** As a user, I want to switch between a dark theme and a light theme, so that I can use the dashboard comfortably in different lighting conditions.
+
+#### Acceptance Criteria
+
+1. THE Greeting_Widget SHALL display a theme toggle button (id: `btn-theme-toggle`) that is visible at all times.
+2. WHEN the user activates the theme toggle button while the dark theme is active, THE Dashboard SHALL switch to the light theme by setting `data-theme="light"` on the `<body>` element and update the toggle button icon to reflect the current theme.
+3. WHEN the user activates the theme toggle button while the light theme is active, THE Dashboard SHALL switch to the dark theme by removing the `data-theme` attribute from the `<body>` element and update the toggle button icon to reflect the current theme.
+4. WHEN the page loads, THE Dashboard SHALL read the theme preference from localStorage key `dashboard_theme` and apply the saved theme before first render; IF no preference is stored, THE Dashboard SHALL apply the dark theme by default.
+5. WHEN the theme changes, THE App SHALL persist the new theme value ('light' or 'dark') to localStorage key `dashboard_theme` within 500ms.
+6. THE Stylesheet SHALL define light theme CSS custom properties under `body[data-theme="light"]` that provide a white or light-grey background, dark text, and the same accent color as the dark theme.
+
+---
+
+### Requirement 12: Custom Name in Greeting
+
+**User Story:** As a user, I want to set my name so that the greeting becomes personal, so that I feel welcomed when I open the dashboard.
+
+#### Acceptance Criteria
+
+1. THE Greeting_Widget SHALL display a text input field (id: `username-input`, maxlength="50") and a set-name button (id: `btn-set-username`) near the greeting text.
+2. WHEN the user enters a name and activates the set-name button, THE Greeting_Widget SHALL trim the entered name, update the greeting text to include the name (e.g. "Good Morning, Annisa!"), and persist the name to localStorage key `dashboard_username`.
+3. WHEN the page loads, THE App SHALL read the stored name from localStorage key `dashboard_username` and populate the `#username-input` field and greeting text with the stored value.
+4. IF no name is stored in localStorage, THEN THE Greeting_Widget SHALL display the greeting without a name (e.g. "Good Morning") with no trailing comma or punctuation.
+5. THE Greeting_Widget SHALL not accept a name longer than 50 characters; characters beyond the limit SHALL not be entered into the input field.
+6. WHEN the user clears the name input and activates the set-name button with an empty value, THE Greeting_Widget SHALL revert to displaying the greeting without a name and SHALL remove the stored name from localStorage key `dashboard_username`.
+
+---
+
+### Requirement 13: Task Sort Control
+
+**User Story:** As a user, I want to sort my task list by different criteria, so that I can view my tasks in the order most useful to me at any given moment.
+
+#### Acceptance Criteria
+
+1. THE Todo_List SHALL display a sort control (id: `sort-select`) above the task list with four options: "Default" (value: `default`), "A→Z" (value: `az`), "Z→A" (value: `za`), and "Done last" (value: `done-last`).
+2. WHEN the sort control is set to "Default", THE Todo_List SHALL render tasks in their original insertion order.
+3. WHEN the sort control is set to "A→Z", THE Todo_List SHALL render tasks sorted alphabetically ascending by task text, case-insensitively.
+4. WHEN the sort control is set to "Z→A", THE Todo_List SHALL render tasks sorted alphabetically descending by task text, case-insensitively.
+5. WHEN the sort control is set to "Done last", THE Todo_List SHALL render incomplete tasks before completed tasks, preserving relative insertion order within each group.
+6. THE Todo_List SHALL apply sorting only to the rendered view; the underlying `tasks[]` array SHALL retain its original insertion order at all times.
+7. WHEN the user changes the sort control, THE App SHALL persist the new sort preference to localStorage key `dashboard_sort` and re-render the task list immediately.
+8. WHEN the page loads, THE App SHALL read the sort preference from localStorage key `dashboard_sort` and restore the sort control to the saved value before rendering tasks; IF no preference is stored, THE App SHALL default to "Default" order.
