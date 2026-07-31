@@ -7,82 +7,43 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+  <!-- Greeting & Clock Widget -->
+  <section id="greeting" class="widget">
+    <div id="greeting-text"></div>
+    <div id="clock-display"></div>
+    <div id="date-display"></div>
+  </section>
 
-  <!-- ===== GREETING SECTION ===== -->
-  <header class="greeting-section">
-    <p id="greeting-text" class="greeting-text"></p>
-    <h1 id="clock" class="clock"></h1>
-    <p id="date-text" class="date-text"></p>
-  </header>
+  <!-- Focus Timer Widget -->
+  <section id="timer" class="widget">
+    <div id="timer-display"></div>
+    <div class="timer-controls">
+      <button id="btn-start">Start</button>
+      <button id="btn-pause">Pause</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+  </section>
 
-  <main class="dashboard">
+  <!-- To-Do List Widget -->
+  <section id="todo" class="widget">
+    <div class="todo-input-row">
+      <input id="todo-input" type="text" maxlength="500" placeholder="Add a task…" />
+      <button id="btn-add-todo">Add</button>
+    </div>
+    <p id="todo-validation" role="alert" style="display:none;"></p>
+    <ul id="todo-list"></ul>
+  </section>
 
-    <!-- ===== FOCUS TIMER SECTION ===== -->
-    <section class="card timer-card">
-      <h2 class="card-title">Focus Timer</h2>
-      <div class="timer-display" id="timer-display">25:00</div>
-      <div class="timer-controls">
-        <button class="btn btn-primary" id="timer-start">Start</button>
-        <button class="btn btn-secondary" id="timer-stop" disabled>Pause</button>
-        <button class="btn btn-ghost" id="timer-reset">Reset</button>
-      </div>
-    </section>
+  <!-- Quick Links Widget -->
+  <section id="links" class="widget">
+    <div class="links-input-row">
+      <input id="link-name-input" type="text" maxlength="100" placeholder="Name" />
+      <input id="link-url-input" type="text" maxlength="2048" placeholder="URL" />
+      <button id="btn-add-link">Add</button>
+    </div>
+    <ul id="links-list"></ul>
+  </section>
 
-    <!-- ===== TO-DO LIST SECTION ===== -->
-    <section class="card todo-card">
-      <h2 class="card-title">To-Do List</h2>
-
-      <form class="todo-form" id="todo-form">
-        <input
-          type="text"
-          class="todo-input"
-          id="todo-input"
-          placeholder="Add a new task…"
-          autocomplete="off"
-          maxlength="200"
-        />
-        <button type="submit" class="btn btn-primary">Add</button>
-      </form>
-
-      <ul class="todo-list" id="todo-list">
-        <!-- Tasks injected by JS -->
-      </ul>
-
-      <p class="todo-empty" id="todo-empty">No tasks yet. Add one above!</p>
-    </section>
-
-    <!-- ===== QUICK LINKS SECTION ===== -->
-    <section class="card links-card">
-      <h2 class="card-title">Quick Links</h2>
-
-      <form class="links-form" id="links-form">
-        <input
-          type="text"
-          class="links-input"
-          id="link-name"
-          placeholder="Link name"
-          autocomplete="off"
-          maxlength="50"
-        />
-        <input
-          type="url"
-          class="links-input"
-          id="link-url"
-          placeholder="https://example.com"
-          autocomplete="off"
-        />
-        <button type="submit" class="btn btn-primary">Add</button>
-      </form>
-
-      <div class="links-grid" id="links-grid">
-        <!-- Links injected by JS -->
-      </div>
-
-      <p class="links-empty" id="links-empty">No links yet. Add one above!</p>
-    </section>
-
-  </main>
-
-  <script src="js/app.js"></script>
+  <script defer src="js/app.js"></script>
 </body>
 </html>

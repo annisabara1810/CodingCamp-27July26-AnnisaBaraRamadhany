@@ -1,504 +1,589 @@
-/**
- * Life Dashboard — app.js
- * Vanilla JS | No frameworks | localStorage persistence
- */
+(function () {
+  'use strict';
 
-'use strict';
+  // ─────────────────────────────────────────────
+  // Constants & State
+  // ─────────────────────────────────────────────
 
-/* ============================================================
-   CONSTANTS & STATE
-   ============================================================ */
+  const TASKS_KEY = 'dashboard_tasks';
+  const LINKS_KEY = 'dashboard_links';
 
-const STORAGE_KEYS = {
-  TODOS: 'dashboard_todos',
-  LINKS: 'dashboard_links',
-};
+  const INITIAL_SECONDS = 25 * 60; // 1500
 
-const TIMER_DURATION = 25 * 60; // seconds
+  let tasks = [];        // Array<{ id: string, text: string, done: boolean }>
+  let links = [];        // Array<{ id: string, name: string, url: string }>
+  let timerSeconds = INITIAL_SECONDS;
+  let timerRunning = false;
+  let timerInterval = null;
 
-let timerSeconds   = TIMER_DURATION;
-let timerInterval  = null;
-let timerRunning   = false;
+  // ─────────────────────────────────────────────
+  // Utility Helpers
+  // ─────────────────────────────────────────────
 
-/** @type {Array<{id: string, text: string, done: boolean}>} */
-let todos = [];
-
-/** @type {Array<{id: string, name: string, url: string}>} */
-let links = [];
-
-/* ============================================================
-   UTILITY
-   ============================================================ */
-
-/**
- * Generate a simple unique ID.
- * @returns {string}
- */
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-/**
- * Persist data to localStorage.
- * @param {string} key
- * @param {*} value
- */
-function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.warn('localStorage write failed:', e);
+  /**
+   * Format a Date object as HH:MM:SS (zero-padded 24-hour).
+   * @param {Date} date
+   * @returns {string}
+   */
+  function formatTime(date) {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
   }
-}
 
-/**
- * Load data from localStorage.
- * @param {string} key
- * @param {*} fallback
- * @returns {*}
- */
-function load(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw !== null ? JSON.parse(raw) : fallback;
-  } catch (e) {
-    return fallback;
+  /**
+   * Format a Date object as "Weekday, DD Month YYYY" using the user's locale.
+   * @param {Date} date
+   * @returns {string}
+   */
+  function formatDate(date) {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
   }
-}
 
-/* ============================================================
-   1. GREETING  —  Live clock, date, greeting message
-   ============================================================ */
+  /**
+   * Return a time-based greeting string based on the hour (0–23).
+   * 5–11  → "Good Morning"
+   * 12–17 → "Good Afternoon"
+   * 0–4, 18–23 → "Good Evening"
+   * @param {number} hour
+   * @returns {string}
+   */
+  function getGreeting(hour) {
+    if (hour >= 5 && hour <= 11) return 'Good Morning';
+    if (hour >= 12 && hour <= 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
 
-const elClock    = document.getElementById('clock');
-const elGreeting = document.getElementById('greeting-text');
-const elDate     = document.getElementById('date-text');
+  /**
+   * Format a number of seconds as MM:SS (zero-padded) for values in [0..1500].
+   * @param {number} seconds
+   * @returns {string}
+   */
+  function formatTimer(seconds) {
+    const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const ss = String(seconds % 60).padStart(2, '0');
+    return `${mm}:${ss}`;
+  }
 
-/**
- * Return a greeting string based on the current hour.
- * @param {number} hour  0–23
- * @returns {string}
- */
-function getGreeting(hour) {
-  if (hour < 12) return 'Good Morning';
-  if (hour < 17) return 'Good Afternoon';
-  return 'Good Evening';
-}
+  /**
+   * Ensure a URL has a protocol prefix. If neither "http://" nor "https://"
+   * is present, prepend "https://".
+   * @param {string} url
+   * @returns {string}
+   */
+  function normalizeUrl(url) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return 'https://' + url;
+  }
 
-/**
- * Update the clock display every second.
- */
-function updateClock() {
-  const now  = new Date();
-  const h    = now.getHours();
-  const m    = now.getMinutes().toString().padStart(2, '0');
-  const s    = now.getSeconds().toString().padStart(2, '0');
-  const h12  = (h % 12 || 12).toString().padStart(2, '0');
-  const ampm = h < 12 ? 'AM' : 'PM';
+  /**
+   * Generate a unique ID using the current timestamp and a random suffix.
+   * @returns {string}
+   */
+  function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
 
-  elClock.textContent    = `${h12}:${m}:${s} ${ampm}`;
-  elGreeting.textContent = getGreeting(h);
+  // ─────────────────────────────────────────────
+  // Greeting Module
+  // ─────────────────────────────────────────────
 
-  elDate.textContent = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    year:    'numeric',
-    month:   'long',
-    day:     'numeric',
-  });
-}
+  /**
+   * Read the current time and update all greeting DOM elements.
+   * Called immediately on load and then once per second via setInterval.
+   */
+  function updateClock() {
+    const date = new Date();
+    document.getElementById('greeting-text').textContent = getGreeting(date.getHours());
+    document.getElementById('clock-display').textContent = formatTime(date);
+    document.getElementById('date-display').textContent = formatDate(date);
+  }
 
-// Tick immediately, then every second
-updateClock();
-setInterval(updateClock, 1000);
+  /**
+   * Initialise the greeting widget: render immediately then refresh every second.
+   */
+  function initGreeting() {
+    updateClock();
+    setInterval(updateClock, 1000);
+  }
 
-/* ============================================================
-   2. FOCUS TIMER
-   ============================================================ */
+  // ─────────────────────────────────────────────
+  // Timer Module
+  // ─────────────────────────────────────────────
 
-const elTimerDisplay = document.getElementById('timer-display');
-const elTimerStart   = document.getElementById('timer-start');
-const elTimerStop    = document.getElementById('timer-stop');
-const elTimerReset   = document.getElementById('timer-reset');
+  /**
+   * Set button enabled/disabled states for the given timer phase.
+   * @param {'stopped'|'running'|'paused'|'completed'} phase
+   */
+  function setTimerButtonStates(phase) {
+    const btnStart = document.getElementById('btn-start');
+    const btnPause = document.getElementById('btn-pause');
+    if (phase === 'running') {
+      btnStart.disabled = true;
+      btnPause.disabled = false;
+    } else {
+      // stopped, paused, completed
+      btnStart.disabled = false;
+      btnPause.disabled = true;
+    }
+  }
 
-/**
- * Format seconds into MM:SS.
- * @param {number} total  seconds
- * @returns {string}
- */
-function formatTime(total) {
-  const m = Math.floor(total / 60).toString().padStart(2, '0');
-  const s = (total % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
+  /**
+   * Initialise the timer widget: reset state to 25:00 and disable pause button.
+   * Called once on DOMContentLoaded.
+   */
+  function initTimer() {
+    timerSeconds = INITIAL_SECONDS;
+    timerRunning = false;
+    timerInterval = null;
+    document.getElementById('timer-display').textContent = formatTimer(timerSeconds);
+    document.getElementById('timer-display').classList.remove('timer-complete');
+    setTimerButtonStates('stopped');
+  }
 
-/** Render the current timer value to the DOM. */
-function renderTimer() {
-  elTimerDisplay.textContent = formatTime(timerSeconds);
+  /**
+   * Start the countdown. No-op if the timer is already running.
+   * Sets timerRunning = true, kicks off setInterval(tick, 1000), updates buttons.
+   */
+  function startTimer() {
+    if (timerRunning) return; // Req 2.3 — idempotent when already running
+    timerRunning = true;
+    timerInterval = setInterval(tick, 1000);
+    setTimerButtonStates('running');
+  }
 
-  // Visual state classes
-  elTimerDisplay.classList.toggle('running', timerRunning && timerSeconds > 0);
-  elTimerDisplay.classList.toggle('finished', timerSeconds === 0);
-}
+  /**
+   * Pause the countdown. Clears the interval, preserves timerSeconds.
+   */
+  function pauseTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerRunning = false;
+    setTimerButtonStates('paused');
+  }
 
-/** Start the countdown. */
-function startTimer() {
-  if (timerRunning || timerSeconds === 0) return;
+  /**
+   * Reset the timer to 25:00, stopping any active countdown.
+   */
+  function resetTimer() {
+    clearInterval(timerInterval); // always clear to prevent multiple intervals
+    timerInterval = null;
+    timerSeconds = INITIAL_SECONDS;
+    timerRunning = false;
+    document.getElementById('timer-display').textContent = formatTimer(timerSeconds);
+    document.getElementById('timer-display').classList.remove('timer-complete');
+    setTimerButtonStates('stopped');
+  }
 
-  timerRunning = true;
-  elTimerStart.disabled = true;
-  elTimerStop.disabled  = false;
-
-  timerInterval = setInterval(() => {
+  /**
+   * Called every second by setInterval. Decrements timerSeconds, updates display.
+   * When countdown reaches 0: stops, shows completion indicator, disables pause.
+   */
+  function tick() {
+    if (timerSeconds <= 0) return; // guard against race conditions
     timerSeconds -= 1;
-    renderTimer();
-
-    if (timerSeconds <= 0) {
+    const display = document.getElementById('timer-display');
+    display.textContent = formatTimer(timerSeconds);
+    if (timerSeconds === 0) {
       clearInterval(timerInterval);
+      timerInterval = null;
       timerRunning = false;
-      elTimerStart.disabled = true;
-      elTimerStop.disabled  = true;
-      // Notify user
-      elTimerDisplay.textContent = 'Done!';
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        new Notification('Focus session complete!', {
-          body: 'Take a short break.',
-          icon: '',
-        });
+      display.classList.add('timer-complete'); // Req 2.8 — completion indicator
+      setTimerButtonStates('completed');       // Req 2.9 — disable pause at 00:00
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Todo Module
+  // ─────────────────────────────────────────────
+
+  /**
+   * Load tasks from localStorage into the in-memory `tasks[]` array
+   * and render them. Silently falls back to an empty array on any
+   * parse/access error (Req 8.5 — no entry → empty list).
+   */
+  function loadTasks() {
+    try {
+      var stored = localStorage.getItem(TASKS_KEY);
+      tasks = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(tasks)) tasks = [];
+    } catch (e) {
+      tasks = [];
+    }
+    renderTasks();
+  }
+
+  /**
+   * Persist the current `tasks[]` array to localStorage as JSON.
+   * Failure is silent — in-memory state remains authoritative (Req 5.5).
+   */
+  function saveTasks() {
+    try {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    } catch (e) {
+      // Silent failure: in-memory state is still correct (Req 5.5)
+    }
+  }
+
+  /**
+   * Read the text input, validate it, then append a new task, persist,
+   * re-render, and clear the input (Req 3.2). Shows a validation message
+   * for empty/whitespace-only input without creating a task (Req 3.3).
+   */
+  function addTask() {
+    var input = document.getElementById('todo-input');
+    var validationMsg = document.getElementById('todo-validation');
+    var text = input.value.trim();
+
+    if (!text) {
+      // Show validation message (Req 3.3)
+      if (validationMsg) {
+        validationMsg.textContent = 'Please enter a task.';
+        validationMsg.style.display = 'block';
       }
+      return;
     }
-  }, 1000);
-}
 
-/** Pause the countdown. */
-function stopTimer() {
-  if (!timerRunning) return;
-
-  clearInterval(timerInterval);
-  timerRunning = false;
-  elTimerStart.disabled = false;
-  elTimerStop.disabled  = true;
-  renderTimer();
-}
-
-/** Reset to 25 minutes. */
-function resetTimer() {
-  clearInterval(timerInterval);
-  timerRunning  = false;
-  timerSeconds  = TIMER_DURATION;
-  elTimerStart.disabled = false;
-  elTimerStop.disabled  = true;
-  renderTimer();
-}
-
-elTimerStart.addEventListener('click', startTimer);
-elTimerStop.addEventListener('click', stopTimer);
-elTimerReset.addEventListener('click', resetTimer);
-
-// Initial render
-renderTimer();
-
-// Request notification permission (best-effort, no prompt spam)
-if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-  Notification.requestPermission();
-}
-
-/* ============================================================
-   3. TO-DO LIST
-   ============================================================ */
-
-const elTodoForm  = document.getElementById('todo-form');
-const elTodoInput = document.getElementById('todo-input');
-const elTodoList  = document.getElementById('todo-list');
-const elTodoEmpty = document.getElementById('todo-empty');
-
-/** Load persisted todos from localStorage. */
-function loadTodos() {
-  todos = load(STORAGE_KEYS.TODOS, []);
-}
-
-/** Save current todos array to localStorage. */
-function saveTodos() {
-  save(STORAGE_KEYS.TODOS, todos);
-}
-
-/** Re-render the entire todo list from state. */
-function renderTodos() {
-  elTodoList.innerHTML = '';
-
-  if (todos.length === 0) {
-    elTodoEmpty.style.display = 'block';
-    return;
-  }
-
-  elTodoEmpty.style.display = 'none';
-
-  todos.forEach((todo) => {
-    const li = createTodoElement(todo);
-    elTodoList.appendChild(li);
-  });
-}
-
-/**
- * Build a <li> element for a single todo item.
- * @param {{id: string, text: string, done: boolean}} todo
- * @returns {HTMLLIElement}
- */
-function createTodoElement(todo) {
-  const li = document.createElement('li');
-  li.className = `todo-item${todo.done ? ' done' : ''}`;
-  li.dataset.id = todo.id;
-
-  // --- Checkbox ---
-  const checkbox = document.createElement('input');
-  checkbox.type      = 'checkbox';
-  checkbox.className = 'todo-checkbox';
-  checkbox.checked   = todo.done;
-  checkbox.setAttribute('aria-label', `Mark "${todo.text}" as done`);
-
-  checkbox.addEventListener('change', () => toggleTodo(todo.id));
-
-  // --- Label ---
-  const label = document.createElement('span');
-  label.className   = 'todo-label';
-  label.textContent = todo.text;
-  label.title       = 'Double-click to edit';
-
-  // Inline edit on double-click
-  label.addEventListener('dblclick', () => startInlineEdit(li, todo));
-
-  // --- Action buttons ---
-  const actions = document.createElement('div');
-  actions.className = 'todo-actions';
-
-  const editBtn = document.createElement('button');
-  editBtn.className          = 'btn-icon';
-  editBtn.innerHTML          = '✏️';
-  editBtn.setAttribute('aria-label', 'Edit task');
-  editBtn.addEventListener('click', () => startInlineEdit(li, todo));
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className         = 'btn-icon danger';
-  deleteBtn.innerHTML         = '🗑️';
-  deleteBtn.setAttribute('aria-label', 'Delete task');
-  deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
-
-  actions.appendChild(editBtn);
-  actions.appendChild(deleteBtn);
-
-  li.appendChild(checkbox);
-  li.appendChild(label);
-  li.appendChild(actions);
-
-  return li;
-}
-
-/**
- * Replace the label span with an input for inline editing.
- * @param {HTMLLIElement} li
- * @param {{id: string, text: string, done: boolean}} todo
- */
-function startInlineEdit(li, todo) {
-  const label = li.querySelector('.todo-label');
-  if (!label) return; // already in edit mode
-
-  const input = document.createElement('input');
-  input.type      = 'text';
-  input.className = 'todo-label-input';
-  input.value     = todo.text;
-  input.maxLength = 200;
-
-  li.replaceChild(input, label);
-  input.focus();
-  input.select();
-
-  // Commit on Enter or blur
-  const commit = () => {
-    const newText = input.value.trim();
-    if (newText && newText !== todo.text) {
-      todo.text = newText;
-      saveTodos();
+    // Hide any previous validation message
+    if (validationMsg) {
+      validationMsg.textContent = '';
+      validationMsg.style.display = 'none';
     }
-    renderTodos();
-  };
 
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { renderTodos(); }          // discard
-  });
-
-  input.addEventListener('blur', commit);
-}
-
-/**
- * Toggle the done state of a todo.
- * @param {string} id
- */
-function toggleTodo(id) {
-  const todo = todos.find((t) => t.id === id);
-  if (!todo) return;
-  todo.done = !todo.done;
-  saveTodos();
-  renderTodos();
-}
-
-/**
- * Delete a todo by id.
- * @param {string} id
- */
-function deleteTodo(id) {
-  todos = todos.filter((t) => t.id !== id);
-  saveTodos();
-  renderTodos();
-}
-
-/**
- * Add a new todo from the form input.
- * @param {Event} e
- */
-function handleTodoSubmit(e) {
-  e.preventDefault();
-  const text = elTodoInput.value.trim();
-  if (!text) return;
-
-  todos.push({ id: uid(), text, done: false });
-  saveTodos();
-  renderTodos();
-
-  elTodoInput.value = '';
-  elTodoInput.focus();
-}
-
-elTodoForm.addEventListener('submit', handleTodoSubmit);
-
-// Load & render on startup
-loadTodos();
-renderTodos();
-
-/* ============================================================
-   4. QUICK LINKS
-   ============================================================ */
-
-const elLinksForm  = document.getElementById('links-form');
-const elLinkName   = document.getElementById('link-name');
-const elLinkUrl    = document.getElementById('link-url');
-const elLinksGrid  = document.getElementById('links-grid');
-const elLinksEmpty = document.getElementById('links-empty');
-
-/** Load persisted links from localStorage. */
-function loadLinks() {
-  links = load(STORAGE_KEYS.LINKS, []);
-}
-
-/** Save current links array to localStorage. */
-function saveLinks() {
-  save(STORAGE_KEYS.LINKS, links);
-}
-
-/**
- * Ensure a URL has a protocol prefix.
- * @param {string} url
- * @returns {string}
- */
-function ensureProtocol(url) {
-  if (/^https?:\/\//i.test(url)) return url;
-  return 'https://' + url;
-}
-
-/** Re-render the links grid from state. */
-function renderLinks() {
-  elLinksGrid.innerHTML = '';
-
-  if (links.length === 0) {
-    elLinksEmpty.style.display = 'block';
-    return;
+    tasks.push({ id: generateId(), text: text, done: false });
+    saveTasks();
+    renderTasks();
+    input.value = '';
   }
 
-  elLinksEmpty.style.display = 'none';
+  /**
+   * Clear and rebuild the `#todo-list` element from the current `tasks[]`.
+   * Each item gets a label <span>, an Edit button, a Delete button, and a
+   * completion checkbox. Completed tasks receive the `.done` class for
+   * strikethrough styling (Req 5.2).
+   */
+  function renderTasks() {
+    var list = document.getElementById('todo-list');
+    if (!list) return;
+    list.innerHTML = '';
 
-  links.forEach((link) => {
-    const chip = createLinkChip(link);
-    elLinksGrid.appendChild(chip);
-  });
-}
+    tasks.forEach(function (task) {
+      var li = document.createElement('li');
+      li.dataset.id = task.id;
 
-/**
- * Build a chip element for a single link.
- * @param {{id: string, name: string, url: string}} link
- * @returns {HTMLElement}
- */
-function createLinkChip(link) {
-  const wrapper = document.createElement('div');
-  wrapper.style.display = 'inline-flex';
+      // Label
+      var label = document.createElement('span');
+      label.textContent = task.text;
+      label.className = 'task-label' + (task.done ? ' done' : '');
 
-  const anchor = document.createElement('a');
-  anchor.className = 'link-chip';
-  anchor.href      = link.url;
-  anchor.target    = '_blank';
-  anchor.rel       = 'noopener noreferrer';
-  anchor.textContent = link.name;
-  anchor.title      = link.url;
+      // Completion checkbox
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = task.done;
+      checkbox.setAttribute('aria-label', 'Mark task complete');
+      checkbox.addEventListener('change', function () {
+        toggleTask(task.id);
+      });
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'link-chip-delete';
-  deleteBtn.innerHTML = '✕';
-  deleteBtn.setAttribute('aria-label', `Remove ${link.name}`);
-  deleteBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    deleteLink(link.id);
-  });
+      // Edit button
+      var editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.setAttribute('aria-label', 'Edit task');
+      editBtn.addEventListener('click', function () {
+        editTask(task.id);
+      });
 
-  anchor.appendChild(deleteBtn);
-  wrapper.appendChild(anchor);
-  return wrapper;
-}
+      // Delete button
+      var deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.setAttribute('aria-label', 'Delete task');
+      deleteBtn.addEventListener('click', function () {
+        deleteTask(task.id);
+      });
 
-/**
- * Delete a link by id.
- * @param {string} id
- */
-function deleteLink(id) {
-  links = links.filter((l) => l.id !== id);
-  saveLinks();
-  renderLinks();
-}
-
-/**
- * Add a new link from the form inputs.
- * @param {Event} e
- */
-function handleLinksSubmit(e) {
-  e.preventDefault();
-
-  const name = elLinkName.value.trim();
-  const rawUrl = elLinkUrl.value.trim();
-
-  if (!name || !rawUrl) return;
-
-  const url = ensureProtocol(rawUrl);
-
-  // Basic URL validation
-  try {
-    new URL(url);
-  } catch {
-    elLinkUrl.focus();
-    elLinkUrl.setCustomValidity('Please enter a valid URL.');
-    elLinkUrl.reportValidity();
-    return;
+      li.appendChild(checkbox);
+      li.appendChild(label);
+      li.appendChild(editBtn);
+      li.appendChild(deleteBtn);
+      list.appendChild(li);
+    });
   }
 
-  elLinkUrl.setCustomValidity('');
+  /**
+   * Switch a task's label into an inline edit input pre-populated with its
+   * current text. Enter confirms; Escape cancels (Req 4.1, 4.2, 4.3, 4.4).
+   * @param {string} id
+   */
+  function editTask(id) {
+    var task = tasks.find(function (t) { return t.id === id; });
+    if (!task) return;
 
-  links.push({ id: uid(), name, url });
-  saveLinks();
-  renderLinks();
+    var list = document.getElementById('todo-list');
+    var li = list ? list.querySelector('li[data-id="' + id + '"]') : null;
+    if (!li) return;
 
-  elLinkName.value = '';
-  elLinkUrl.value  = '';
-  elLinkName.focus();
-}
+    // Replace the label span with an edit input
+    var label = li.querySelector('.task-label');
+    if (!label) return;
 
-elLinksForm.addEventListener('submit', handleLinksSubmit);
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 200; // Req 4.2
+    input.value = task.text;
+    input.className = 'task-edit-input';
+    input.setAttribute('aria-label', 'Edit task text');
 
-// Load & render on startup
-loadLinks();
-renderLinks();
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        confirmEdit(id);
+      } else if (e.key === 'Escape') {
+        cancelEdit(id);
+      }
+    });
+
+    li.replaceChild(input, label);
+
+    // Move cursor to end (Req 4.1)
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  /**
+   * Read the edit input value. If blank, cancel; otherwise update the task,
+   * persist, and re-render (Req 4.3, 4.5, 4.6).
+   * @param {string} id
+   */
+  function confirmEdit(id) {
+    var list = document.getElementById('todo-list');
+    var li = list ? list.querySelector('li[data-id="' + id + '"]') : null;
+    var input = li ? li.querySelector('input.task-edit-input') : null;
+    if (!input) return;
+
+    var trimmed = input.value.trim();
+
+    if (!trimmed) {
+      // Blank input — discard change and restore original (Req 4.5)
+      cancelEdit(id);
+      return;
+    }
+
+    var task = tasks.find(function (t) { return t.id === id; });
+    if (task) {
+      task.text = trimmed;
+    }
+
+    saveTasks();   // Req 4.6 — persist before returning to display mode
+    renderTasks();
+  }
+
+  /**
+   * Abort an in-progress edit, restoring the task's original display without
+   * modifying tasks[] (Req 4.4).
+   * @param {string} id
+   */
+  function cancelEdit(id) {
+    renderTasks(); // Re-render from unchanged tasks[] (Req 4.4)
+    void id;
+  }
+
+  /**
+   * Flip task.done true↔false, persist, and re-render (Req 5.1, 5.2, 5.4).
+   * @param {string} id
+   */
+  function toggleTask(id) {
+    var task = tasks.find(function (t) { return t.id === id; });
+    if (!task) return;
+
+    task.done = !task.done;
+    saveTasks(); // Req 5.4 — persist within 500 ms
+    renderTasks();
+  }
+
+  /**
+   * Remove the task with the given id from tasks[], persist, and re-render
+   * (Req 5.3, 5.4).
+   * @param {string} id
+   */
+  function deleteTask(id) {
+    tasks = tasks.filter(function (t) { return t.id !== id; }); // Req 5.3
+    saveTasks(); // Req 5.4
+    renderTasks();
+  }
+
+  // ─────────────────────────────────────────────
+  // Links Module
+  // ─────────────────────────────────────────────
+
+  /**
+   * Load links from localStorage into the in-memory `links[]` array
+   * and render them. Silently falls back to an empty array on any
+   * parse/access error (Req 8.6 — no entry → empty list).
+   */
+  function loadLinks() {
+    try {
+      var stored = localStorage.getItem(LINKS_KEY);
+      links = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(links)) links = [];
+    } catch (e) {
+      links = [];
+    }
+    renderLinks();
+  }
+
+  /**
+   * Persist the current `links[]` array to localStorage as JSON.
+   * Failure is silent — in-memory state remains authoritative (Req 8.2).
+   */
+  function saveLinks() {
+    try {
+      localStorage.setItem(LINKS_KEY, JSON.stringify(links));
+    } catch (e) {
+      // Silent failure: in-memory state is still correct (Req 8.2)
+    }
+  }
+
+  /**
+   * Read both link inputs, validate non-empty, normalize the URL,
+   * push a new Link, persist, re-render, and clear inputs (Req 6.2).
+   * Highlights invalid fields if either is empty (Req 6.3).
+   */
+  function addLink() {
+    var nameInput = document.getElementById('link-name-input');
+    var urlInput = document.getElementById('link-url-input');
+    var name = nameInput.value.trim();
+    var url = urlInput.value.trim();
+
+    var nameInvalid = !name;
+    var urlInvalid = !url;
+
+    // Highlight invalid fields and bail out (Req 6.3)
+    if (nameInvalid) {
+      nameInput.classList.add('input-error');
+    } else {
+      nameInput.classList.remove('input-error');
+    }
+
+    if (urlInvalid) {
+      urlInput.classList.add('input-error');
+    } else {
+      urlInput.classList.remove('input-error');
+    }
+
+    if (nameInvalid || urlInvalid) return;
+
+    // Normalize URL — prefix with https:// if no protocol present (Req 6.4)
+    url = normalizeUrl(url);
+
+    links.push({ id: generateId(), name: name, url: url });
+    saveLinks();
+    renderLinks();
+
+    // Clear inputs (Req 6.2)
+    nameInput.value = '';
+    urlInput.value = '';
+    nameInput.classList.remove('input-error');
+    urlInput.classList.remove('input-error');
+  }
+
+  /**
+   * Clear and rebuild the `#links-list` element from the current `links[]`.
+   * Each item renders as a clickable <a> opening in a new tab plus a Remove
+   * button (Req 7.1, 7.2).
+   */
+  function renderLinks() {
+    var list = document.getElementById('links-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    links.forEach(function (link) {
+      var li = document.createElement('li');
+      li.dataset.id = link.id;
+
+      // Clickable link (Req 7.1, 7.2)
+      var anchor = document.createElement('a');
+      anchor.href = link.url;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.textContent = link.name;
+
+      // Remove button (Req 6.5)
+      var removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.setAttribute('aria-label', 'Remove link');
+      removeBtn.addEventListener('click', function () {
+        removeLink(link.id);
+      });
+
+      li.appendChild(anchor);
+      li.appendChild(removeBtn);
+      list.appendChild(li);
+    });
+  }
+
+  /**
+   * Remove the link with the given id from links[], persist, and re-render
+   * (Req 6.5).
+   * @param {string} id
+   */
+  function removeLink(id) {
+    links = links.filter(function (l) { return l.id !== id; });
+    saveLinks();
+    renderLinks();
+  }
+
+  // ─────────────────────────────────────────────
+  // Bootstrap
+  // ─────────────────────────────────────────────
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // Initialise in spec-prescribed order: loadTasks → loadLinks → initGreeting → initTimer
+    // (Req 1.7, 2.1, 8.3, 8.4, 8.5, 8.6)
+
+    // Todo Module — restore persisted tasks before anything else
+    loadTasks();
+    document.getElementById('btn-add-todo').addEventListener('click', addTask);
+    document.getElementById('todo-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') addTask();
+    });
+
+    // Links Module — restore persisted links
+    loadLinks();
+    document.getElementById('btn-add-link').addEventListener('click', addLink);
+    document.getElementById('link-url-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') addLink();
+    });
+
+    // Greeting — render clock/date/greeting immediately then every second
+    initGreeting();
+
+    // Timer — set to 25:00 and wire controls
+    initTimer();
+    document.getElementById('btn-start').addEventListener('click', startTimer);
+    document.getElementById('btn-pause').addEventListener('click', pauseTimer);
+    document.getElementById('btn-reset').addEventListener('click', resetTimer);
+  });
+
+  // CommonJS export guard — allows Vitest to import pure functions for testing
+  // while keeping file:// protocol compatibility (no ES module syntax)
+  if (typeof module !== 'undefined') {
+    module.exports = {
+      formatTime, formatDate, getGreeting, formatTimer, normalizeUrl, generateId,
+      initTimer, startTimer, pauseTimer, resetTimer, tick,
+      loadTasks, saveTasks, addTask, renderTasks,
+      editTask, confirmEdit, cancelEdit, toggleTask, deleteTask,
+      loadLinks, saveLinks, addLink, renderLinks, removeLink,
+      get tasks() { return tasks; },
+      set tasks(v) { tasks = v; },
+      get links() { return links; },
+      set links(v) { links = v; },
+    };
+  }
+}());
