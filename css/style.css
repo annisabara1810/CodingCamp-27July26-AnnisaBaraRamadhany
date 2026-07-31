@@ -1,0 +1,475 @@
+/* ============================================================
+   LIFE DASHBOARD — style.css
+   ============================================================ */
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  --bg-page:        #0f1117;
+  --bg-card:        #1a1d27;
+  --bg-card-hover:  #1f2233;
+  --bg-input:       #12141e;
+
+  --accent:         #6c63ff;
+  --accent-hover:   #5a53e0;
+  --accent-muted:   rgba(108, 99, 255, 0.15);
+
+  --success:        #34d399;
+  --danger:         #f87171;
+  --warning:        #fbbf24;
+
+  --text-primary:   #e8eaf0;
+  --text-secondary: #8b8fa8;
+  --text-muted:     #555870;
+
+  --border:         #2a2d3e;
+  --border-focus:   #6c63ff;
+
+  --radius-sm:  6px;
+  --radius-md:  12px;
+  --radius-lg:  20px;
+
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-btn:  0 2px 8px rgba(108, 99, 255, 0.35);
+
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  --transition: 0.18s ease;
+}
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 0 0 3rem;
+  line-height: 1.6;
+}
+
+/* ---------- Greeting / Header ---------- */
+.greeting-section {
+  text-align: center;
+  padding: 3rem 1rem 2.5rem;
+  background: linear-gradient(160deg, #12141e 0%, #0f1117 100%);
+  border-bottom: 1px solid var(--border);
+}
+
+.greeting-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+
+.clock {
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin-bottom: 0.4rem;
+}
+
+.date-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Dashboard Grid ---------- */
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 2rem auto 0;
+  padding: 0 1.5rem;
+}
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--transition);
+}
+
+.card:hover {
+  border-color: #3a3d52;
+}
+
+.card-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), opacity var(--transition), transform var(--transition);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-btn);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: #2a2d3e;
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #353849;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #1f2233;
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: color var(--transition), background var(--transition);
+  line-height: 1;
+  font-size: 1rem;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary);
+  background: #2a2d3e;
+}
+
+.btn-icon.danger:hover {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+/* ---------- Focus Timer ---------- */
+.timer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.timer-display {
+  font-size: clamp(3.5rem, 10vw, 5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  margin: 0.5rem 0 1.75rem;
+  letter-spacing: 0.04em;
+  transition: color var(--transition);
+}
+
+.timer-display.running {
+  color: var(--success);
+}
+
+.timer-display.finished {
+  color: var(--warning);
+}
+
+.timer-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ---------- To-Do List ---------- */
+.todo-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.todo-input,
+.links-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 0.55rem 0.85rem;
+  outline: none;
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+
+.todo-input::placeholder,
+.links-input::placeholder {
+  color: var(--text-muted);
+}
+
+.todo-input:focus,
+.links-input:focus {
+  border-color: var(--border-focus);
+}
+
+.todo-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  transition: border-color var(--transition), background var(--transition);
+  animation: fadeSlideIn 0.2s ease;
+}
+
+.todo-item:hover {
+  border-color: #3a3d52;
+  background: #13151f;
+}
+
+/* Checkbox */
+.todo-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border: 2px solid var(--border-focus);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.todo-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.todo-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Task label / inline edit */
+.todo-label {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  cursor: text;
+  word-break: break-word;
+  transition: color var(--transition);
+}
+
+.todo-item.done .todo-label {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.todo-label-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.todo-item:hover .todo-actions,
+.todo-item:focus-within .todo-actions {
+  opacity: 1;
+}
+
+.todo-empty,
+.links-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 1rem 0 0.25rem;
+}
+
+/* ---------- Quick Links ---------- */
+.links-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.links-form .links-input:first-of-type {
+  flex: 0 0 130px;
+}
+
+.links-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--accent-muted);
+  border: 1px solid rgba(108, 99, 255, 0.3);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem 0.4rem 0.95rem;
+  font-size: 0.825rem;
+  font-weight: 500;
+  color: #a8a4ff;
+  text-decoration: none;
+  transition: background var(--transition), border-color var(--transition);
+  animation: fadeSlideIn 0.2s ease;
+}
+
+.link-chip:hover {
+  background: rgba(108, 99, 255, 0.25);
+  border-color: rgba(108, 99, 255, 0.55);
+  color: #c4c0ff;
+}
+
+.link-chip-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(108, 99, 255, 0.5);
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 0.1rem;
+  transition: color var(--transition);
+}
+
+.link-chip-delete:hover {
+  color: var(--danger);
+}
+
+/* ---------- Animations ---------- */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2d3e;
+  border-radius: 3px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 480px) {
+  .greeting-section {
+    padding: 2rem 1rem 1.75rem;
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr;
+    padding: 0 1rem;
+    gap: 1rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .links-form {
+    flex-direction: column;
+  }
+
+  .links-form .links-input:first-of-type {
+    flex: 1;
+  }
+}

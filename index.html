@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Life Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ===== GREETING SECTION ===== -->
+  <header class="greeting-section">
+    <p id="greeting-text" class="greeting-text"></p>
+    <h1 id="clock" class="clock"></h1>
+    <p id="date-text" class="date-text"></p>
+  </header>
+
+  <main class="dashboard">
+
+    <!-- ===== FOCUS TIMER SECTION ===== -->
+    <section class="card timer-card">
+      <h2 class="card-title">Focus Timer</h2>
+      <div class="timer-display" id="timer-display">25:00</div>
+      <div class="timer-controls">
+        <button class="btn btn-primary" id="timer-start">Start</button>
+        <button class="btn btn-secondary" id="timer-stop" disabled>Pause</button>
+        <button class="btn btn-ghost" id="timer-reset">Reset</button>
+      </div>
+    </section>
+
+    <!-- ===== TO-DO LIST SECTION ===== -->
+    <section class="card todo-card">
+      <h2 class="card-title">To-Do List</h2>
+
+      <form class="todo-form" id="todo-form">
+        <input
+          type="text"
+          class="todo-input"
+          id="todo-input"
+          placeholder="Add a new task…"
+          autocomplete="off"
+          maxlength="200"
+        />
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+
+      <ul class="todo-list" id="todo-list">
+        <!-- Tasks injected by JS -->
+      </ul>
+
+      <p class="todo-empty" id="todo-empty">No tasks yet. Add one above!</p>
+    </section>
+
+    <!-- ===== QUICK LINKS SECTION ===== -->
+    <section class="card links-card">
+      <h2 class="card-title">Quick Links</h2>
+
+      <form class="links-form" id="links-form">
+        <input
+          type="text"
+          class="links-input"
+          id="link-name"
+          placeholder="Link name"
+          autocomplete="off"
+          maxlength="50"
+        />
+        <input
+          type="url"
+          class="links-input"
+          id="link-url"
+          placeholder="https://example.com"
+          autocomplete="off"
+        />
+        <button type="submit" class="btn btn-primary">Add</button>
+      </form>
+
+      <div class="links-grid" id="links-grid">
+        <!-- Links injected by JS -->
+      </div>
+
+      <p class="links-empty" id="links-empty">No links yet. Add one above!</p>
+    </section>
+
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
